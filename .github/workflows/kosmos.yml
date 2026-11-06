@@ -52,7 +52,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
         run: |
           test -s configs_plain.json
-          test -s Cosmos_links.txt
+          test -s cosmos_links.txt
           test -s user_info.json
 
       - name: Update Gist
