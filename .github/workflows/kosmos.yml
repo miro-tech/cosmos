@@ -68,7 +68,7 @@ jobs:
 
           filenames = [
               "configs_plain.json",
-              "Cosmos_links.txt",
+              "cosmos_links.txt",
               "user_info.json",
           ]
 
