@@ -1,97 +1,97 @@
 name: Kosmos VPN Update
 
 on:
-workflow_dispatch:
-schedule:
-- cron: "0 0 * * 1"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 1"
 
 permissions:
-contents: read
+  contents: read
 
 concurrency:
-group: kosmos-update
-cancel-in-progress: false
+  group: kosmos-update
+  cancel-in-progress: false
 
 jobs:
-update:
-runs-on: ubuntu-latest
-timeout-minutes: 20
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Check two-week schedule
-    if: github.event_name == 'schedule'
-    id: biweekly
-    run: |
-      WEEK=$(date -u +%V)
-      if (( 10#$WEEK % 2 == 0 )); then
-        echo "run=true" >> "$GITHUB_OUTPUT"
-      else
-        echo "run=false" >> "$GITHUB_OUTPUT"
-      fi
+      - name: Check two-week schedule
+        id: biweekly
+        if: github.event_name == 'schedule'
+        run: |
+          WEEK=$(date -u +%V)
+          if (( 10#$WEEK % 2 == 0 )); then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
 
-  - name: Set up Python
-    if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
-    uses: actions/setup-python@v5
-    with:
-      python-version: "3.12"
+      - name: Set up Python
+        if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-  - name: Install dependencies
-    if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
-    run: |
-      python -m pip install --upgrade pip
-      pip install requests pycryptodome
+      - name: Install dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pycryptodome
 
-  - name: Run authorized extractor
-    if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
-    run: python kosmos_fetch.py
+      - name: Run authorized extractor
+        if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
+        run: python kosmos_fetch.py
 
-  - name: Check output files
-    if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
-    run: |
-      test -s configs_plain.json
-      test -s Cosmos_links.txt
-      test -s user_info.json
+      - name: Check output files
+        if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
+        run: |
+          test -s configs_plain.json
+          test -s Cosmos_links.txt
+          test -s user_info.json
 
-  - name: Update Gist
-    if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
-    env:
-      GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
-      GIST_ID: ${{ secrets.GIST_ID }}
-    run: |
-      python - <<'PY'
-      import os
-      import requests
-      from pathlib import Path
+      - name: Update Gist
+        if: github.event_name == 'workflow_dispatch' || steps.biweekly.outputs.run == 'true'
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          import requests
+          from pathlib import Path
 
-      files = [
-          "configs_plain.json",
-          "Cosmos_links.txt",
-          "user_info.json",
-      ]
+          filenames = [
+              "configs_plain.json",
+              "Cosmos_links.txt",
+              "user_info.json",
+          ]
 
-      payload = {
-          "files": {
-              name: {
-                  "content": Path(name).read_text(encoding="utf-8")
+          payload = {
+              "files": {
+                  name: {
+                      "content": Path(name).read_text(encoding="utf-8")
+                  }
+                  for name in filenames
               }
-              for name in files
           }
-      }
 
-      response = requests.patch(
-          f"https://api.github.com/gists/{os.environ['GIST_ID']}",
-          headers={
-              "Authorization": f"Bearer {os.environ['GIST_TOKEN']}",
-              "Accept": "application/vnd.github+json",
-              "X-GitHub-Api-Version": "2022-11-28",
-          },
-          json=payload,
-          timeout=60,
-      )
+          response = requests.patch(
+              f"https://api.github.com/gists/{os.environ['GIST_ID']}",
+              headers={
+                  "Authorization": f"Bearer {os.environ['GIST_TOKEN']}",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+              json=payload,
+              timeout=60,
+          )
 
-      response.raise_for_status()
-      print("Gist updated:", response.json()["html_url"])
-      PY
+          response.raise_for_status()
+          print("Gist updated:", response.json()["html_url"])
+          PY
